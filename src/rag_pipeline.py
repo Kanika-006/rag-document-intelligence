@@ -1,3 +1,4 @@
+
 from google import genai
 from dotenv import load_dotenv
 import os
@@ -7,6 +8,8 @@ from src.query_preprocessor import correct_spelling
 
 
 load_dotenv()
+
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 
 def generate_standalone_question(client, question, chat_history):
@@ -45,7 +48,7 @@ Standalone question:
 """
 
     response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
+        model=MODEL_NAME,
         contents=prompt
     )
 
@@ -127,9 +130,13 @@ Instructions:
 3. Use bullet points only when necessary.
 4. Answer using ONLY the retrieved document context.
 5. Do not invent facts or use outside knowledge.
-6. If the context does not contain the answer,
-   clearly say so.
-7. Mention the relevant source page number.
+6. If the retrieved context does not contain sufficient
+   information to answer, start your response EXACTLY with:
+   [INSUFFICIENT_CONTEXT]
+7. After this marker, clearly state that the document
+   does not provide sufficient information.
+8. Do not mention or cite page numbers when using this marker.
+9. Only cite pages that directly support your answer.
 
 Conversation history:
 {history_text}
@@ -138,21 +145,35 @@ Retrieved document context:
 {context}
 
 Original user question:
-{question}
-
-Interpreted question:
-{corrected_question}
+{standalone_question}
 
 Answer:
 """
 
     response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
+        model=MODEL_NAME,
         contents=prompt
     )
 
+    answer = (response.text or "").strip()
+
+    if answer.startswith("[INSUFFICIENT_CONTEXT]"):
+
+        answer = answer.replace(
+            "[INSUFFICIENT_CONTEXT]",
+            "",
+            1
+        ).strip()
+
+        return {
+            "answer": answer,
+            "sources": [],
+            "corrected_question": corrected_question,
+            "standalone_question": standalone_question
+        }
+
     return {
-        "answer": response.text,
+        "answer": answer,
         "sources": retrieved_chunks,
         "corrected_question": corrected_question,
         "standalone_question": standalone_question
