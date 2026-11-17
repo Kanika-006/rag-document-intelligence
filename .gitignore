@@ -1,0 +1,43 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Local FAISS vector database
+vectorstore/
+
+# IDE and editor settings
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Temporary uploaded documents
+temp/
+
+# Generated evaluation outputs
+*.csv
+
+# Build and distribution files
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
