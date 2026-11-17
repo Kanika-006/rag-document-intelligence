@@ -4,6 +4,7 @@ import pandas as pd
 df = pd.read_csv("answer_evaluation_results.csv")
 
 score_columns = [
+    "accuracy_score",
     "correctness_score",
     "faithfulness_score",
     "completeness_score",
@@ -17,16 +18,11 @@ print("\nANSWER QUALITY EVALUATION")
 print("=" * 55)
 
 for column in score_columns:
-
     average = df[column].mean()
 
     if pd.notna(average):
         percentage = (average / 2) * 100
-
-        print(
-            f"{column.replace('_score', '').title():<25}"
-            f"{percentage:.2f}%"
-        )
+        print(f"{column.replace('_score', '').title():<25}{percentage:.2f}%")
 
 print("\nABSTENTION EVALUATION")
 print("=" * 55)
@@ -45,9 +41,7 @@ print(f"Out-of-document questions: {len(abstention_cases)}")
 print(f"Correct refusals: {len(correct_refusals)}")
 
 if len(abstention_cases) > 0:
-    print(
-        f"Refusal rate: "
-        f"{len(correct_refusals) / len(abstention_cases) * 100:.2f}%"
-    )
+    refusal_rate = len(correct_refusals) / len(abstention_cases) * 100
+    print(f"Refusal rate: {refusal_rate:.2f}%")
 
 print("\nEvaluation completed.")

@@ -1,7 +1,6 @@
-
 # RAG-Based Document Intelligence System
 
-An end-to-end Retrieval-Augmented Generation (RAG) system that enables users to interact with PDF documents through natural-language questions. The system combines semantic search, keyword-based retrieval, reciprocal rank fusion, and CrossEncoder reranking to retrieve relevant information before generating grounded answers using Google Gemini.
+An end-to-end Retrieval-Augmented Generation (RAG) system that enables users to interact with PDF documents through natural-language questions. The system combines semantic search, keyword-based retrieval, Reciprocal Rank Fusion (RRF), and CrossEncoder reranking to retrieve relevant information before generating grounded answers using Google Gemini.
 
 ## Key Features
 
@@ -13,54 +12,55 @@ An end-to-end Retrieval-Augmented Generation (RAG) system that enables users to 
 - **CrossEncoder Reranking:** Reorders retrieved passages based on query-document relevance.
 - **Grounded Answer Generation:** Uses Google Gemini to generate responses based on retrieved document context.
 - **Source Attribution:** Includes page references to help users verify generated answers.
-- **Conversation Support:** Maintains conversation history and handles follow-up questions.
-- **Out-of-Context Handling:** Instructs the model to abstain when the retrieved document context does not support an answer.
+- **Conversation Support:** Maintains conversation history and handles follow-up questions through query reformulation.
+- **Query Preprocessing:** Applies document-aware spelling correction.
+- **Out-of-Context Handling:** Abstains when the retrieved document context does not support an answer.
 - **Interactive Interface:** Provides a Streamlit application for uploading PDFs and asking questions.
 
 ## System Architecture
 
 ```text
-                PDF Document
-                     |
-                     v
-                PDF Loader
-                     |
-                     v
-               Text Extraction
-                     |
-                     v
-                Text Chunking
-                     |
-                     v
-              Embedding Model
-                     |
-                     v
-                FAISS Index
-                     |
-          +----------+----------+
-          |                     |
-          v                     v
-     FAISS Search           BM25 Search
-          |                     |
-          +----------+----------+
-                     |
-                     v
-          Reciprocal Rank Fusion
-                     |
-                     v
+                 PDF Document
+                      |
+                      v
+                  PDF Loader
+                      |
+                      v
+                Text Extraction
+                      |
+                      v
+                 Text Chunking
+                      |
+                      v
+                Embedding Model
+                      |
+                      v
+                  FAISS Index
+                      |
+           +----------+----------+
+           |                     |
+           v                     v
+      FAISS Search           BM25 Search
+           |                     |
+           +----------+----------+
+                      |
+                      v
+           Reciprocal Rank Fusion
+                      |
+                      v
              Candidate Retrieval
-                     |
-                     v
+                      |
+                      v
              CrossEncoder Reranking
-                     |
-                     v
-             Relevant Context
-                     |
-                     v
-              Gemini LLM
-                     |
-                     v
-         Grounded Answer + Sources
+                      |
+                      v
+              Relevant Context
+                      |
+                      v
+                Gemini LLM
+                      |
+                      v
+           Grounded Answer + Sources
 ```
 
 ## Technology Stack
@@ -76,9 +76,10 @@ An end-to-end Retrieval-Augmented Generation (RAG) system that enables users to 
 | Keyword Retrieval | BM25 |
 | Ranking Fusion | Reciprocal Rank Fusion |
 | Reranking | CrossEncoder |
+| Reranking Model | ms-marco-MiniLM-L-6-v2 |
 | Language Model | Google Gemini |
 | User Interface | Streamlit |
-| Evaluation | Precision@K, Recall@K, MRR, Hit Rate |
+| Evaluation | Precision@K, Recall@K, MRR, Hit Rate, Answer Quality Metrics |
 
 ## Project Structure
 
@@ -88,6 +89,10 @@ rag-document-intelligence/
 ├── data/
 │   └── sample_documents/
 │       └── sample.pdf
+|
+├── screenshots/
+│   ├── app-interface.png
+│   └── answer-with-sources.png
 |
 ├── src/
 │   ├── pdf_loader.py
@@ -99,6 +104,7 @@ rag-document-intelligence/
 │   └── rag_pipeline.py
 |
 ├── tests/
+│   ├── __init__.py
 │   ├── test_pdf_loader.py
 │   ├── test_embeddings.py
 │   ├── test_gemini.py
@@ -120,7 +126,7 @@ rag-document-intelligence/
 
 ## Retrieval Evaluation
 
-The retrieval pipeline was evaluated using 14 question-page relevance pairs from the sample PDF.
+The retrieval pipeline was evaluated using **36 question-page relevance pairs** covering direct, conceptual, formula-based, comparison, and paraphrased queries from the sample PDF.
 
 Three retrieval configurations were compared:
 
@@ -130,41 +136,59 @@ Three retrieval configurations were compared:
 
 ### Evaluation Results
 
-| Metric | FAISS Only | Hybrid | Hybrid + Reranking |
+| Metric | FAISS Only | Hybrid | Hybrid + CrossEncoder |
 |---|---:|---:|---:|
-| Precision@3 | 0.3571 | 0.3333 | 0.3571 |
-| Recall@3 | 0.8571 | 0.8214 | 0.8571 |
-| MRR | 0.7381 | 0.7500 | 1.0000 |
-| Hit Rate@3 | 0.8571 | 0.9286 | 1.0000 |
+| Precision@3 | 0.2870 | 0.2778 | 0.2963 |
+| Recall@3 | 0.7500 | 0.7361 | 0.7500 |
+| MRR | 0.6157 | 0.6759 | 0.7963 |
+| Hit Rate@3 | 0.7778 | 0.8056 | 0.8611 |
 
-**Key observation:** Hybrid retrieval with CrossEncoder reranking achieved an MRR of 1.00 and a Hit Rate@3 of 1.00 on this evaluation set, indicating that a relevant page appeared first for every evaluated query and at least one relevant page appeared in the top three for every query.
+**Key Observations**
 
-These are preliminary results from a small evaluation set and a single PDF. They should not be interpreted as general performance guarantees.
+- Hybrid retrieval with CrossEncoder reranking achieved the highest MRR of 0.7963.
+- Hit Rate@3 improved from 0.7778 with FAISS-only retrieval to 0.8611 with the combined approach.
+- Recall@3 remained at 0.75 after reranking, indicating that the primary improvement was in ranking relevant results higher rather than increasing retrieval coverage.
+
+These results are based on a manually labelled evaluation set from a single PDF and should not be interpreted as general performance guarantees.
 
 ## Answer Quality Evaluation
 
-The answer-generation pipeline was also tested using in-document and out-of-document questions.
+The answer-generation pipeline was evaluated using **21 test questions**, consisting of 16 answerable questions and 5 out-of-document questions.
 
-The evaluation checks:
+The evaluation assessed answer quality across five dimensions using a manually reviewed 0–2 scoring scale, converted into percentages.
 
-- Answer correctness
-- Faithfulness to retrieved context
-- Answer completeness
-- Citation accuracy
-- Appropriate refusal of unsupported questions
+### Evaluation Results
 
-The initial evaluation uses a small manually reviewed set of questions. Results are preliminary and should be expanded with additional documents and test cases.
+| Metric | Score |
+|---|---:|
+| Accuracy | 97.62% |
+| Correctness | 97.62% |
+| Faithfulness | 97.62% |
+| Completeness | 97.62% |
+| Citation Accuracy | 90.48% |
+
+### Abstention Evaluation
+
+| Metric | Result |
+|---|---:|
+| Out-of-document Questions | 5 |
+| Correct Refusals | 5 |
+| Refusal Rate | 100% |
+
+The system correctly abstained from answering all five questions that were outside the document's scope.
+
+Answer-quality scores are based on manual assessment and are preliminary. Citation accuracy reflects the manual evaluation of citation relevance, not an automated verification of every cited page.
 
 ## Installation and Setup
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Kanika-006/rag-document-intelligence.git
 cd rag-document-intelligence
 ```
 
-### 2. Create a virtual environment
+### 2. Create a Virtual Environment
 
 ```bash
 python -m venv venv
@@ -176,13 +200,13 @@ Activate it on Windows PowerShell:
 .\venv\Scripts\Activate.ps1
 ```
 
-### 3. Install dependencies
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
+### 4. Configure Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -193,7 +217,7 @@ GEMINI_MODEL=your_configured_gemini_model
 
 Never upload your `.env` file or expose your API key.
 
-### 5. Run the application
+### 5. Run the Application
 
 ```bash
 streamlit run app.py
@@ -203,24 +227,43 @@ Upload a PDF and start asking questions about its contents.
 
 ## Running Tests
 
-Run individual tests from the project root:
+Run individual test modules from the project root:
 
 ```bash
 python -m tests.test_pdf_loader
+python -m tests.test_embeddings
+python -m tests.test_retriever
 python -m tests.test_retrieval_evaluation
 python -m tests.test_answer_evaluation
 ```
 
-Run the evaluation metrics script:
+Run the answer-quality metrics script:
 
 ```bash
 python evaluate_metrics.py
 ```
 
+## Application Screenshots
+
+### Application Interface
+
+![Application Interface](screenshots/app-interface.png)
+
+### Document-Based Question Answering
+
+![Generated Answer with Sources](screenshots/answer-with-sources.png)
+
+## Live Demo
+
+[Try the Live Application](https://rag-document-intelligence-dmuv2jmvmtjbh374dam9zx.streamlit.app/)
+
+## GitHub Repository
+
+[View Source Code](https://github.com/Kanika-006/rag-document-intelligence)
 
 ## Author
 
-Kanika 
+**Kanika Singla**
 
 Electronics and Computer Engineering  
 Thapar Institute of Engineering and Technology
